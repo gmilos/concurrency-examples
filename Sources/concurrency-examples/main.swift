@@ -16,23 +16,23 @@ typealias AsyncService = (AsyncCall) -> ()
 
 
 // Implementation
-func service(mainHandler: AsyncCall, downstreamServices: [AsyncService]) {
-    let (req, callback): AsyncCall = mainHandler
+func service(call: AsyncCall, downstreamServices: [AsyncService]) {
+    let (req, callback): AsyncCall = call
 
     // TODO: error if empty service list
 
     // protected by q below
-    var isFirst = true
-    let isFirstQ = DispatchQueue(label: "isFirst")
+    var first = true
+    let firstQ = DispatchQueue(label: "first")
     for downstreamService in downstreamServices {
         print("Calling a downstream service")
         downstreamService((req, { resp in
-            let isFirstResponse: Bool = isFirstQ.sync {
-                let localIsFirst = isFirst
-                isFirst = false
+            let firstResponse: Bool = firstQ.sync {
+                let localIsFirst = first
+                first = false
                 return localIsFirst
             }
-            if isFirstResponse {
+            if firstResponse {
                 callback(resp)
             }
         }))
@@ -62,7 +62,7 @@ func delayedAsyncCall() -> AsyncService {
 
 let dg = DispatchGroup()
 dg.enter()
-service(mainHandler: ((), { rsp in
+service(call: ((), { rsp in
     print("Got final response")
     dg.leave()
 }), downstreamServices: (0..<50).map{_ in delayedAsyncCall()})
