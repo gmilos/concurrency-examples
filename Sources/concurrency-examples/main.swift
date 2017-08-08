@@ -10,32 +10,53 @@ import Glibc
 typealias Request = ()
 typealias Response = ()
 
-typealias Callback = (Response) -> ()
+typealias Callback = (Response?, Error?) -> ()
 typealias AsyncCall = (Request, Callback)
 typealias AsyncService = (AsyncCall) -> ()
+
+enum ServiceError : Error {
+    case noDowntstreamService
+    case allDowntstreamServicesFailed
+}
 
 
 // Implementation
 func service(call: AsyncCall, downstreamServices: [AsyncService]) {
     let (req, callback): AsyncCall = call
 
-    // TODO: error if empty service list
+    guard downstreamServices.count > 0 else {
+        callback(nil, ServiceError.noDowntstreamService)
+        return
+    }
 
     // protected by q below
-    var first = true
-    let firstQ = DispatchQueue(label: "first")
+    var _first = true
+    let _firstQ = DispatchQueue(label: "first")
+    func first() -> Bool {
+        return _firstQ.sync {
+            let __first = _first
+            _first = false
+            return __first
+        }
+    }
+
+    let serviceCounter = DispatchGroup()
     for downstreamService in downstreamServices {
         print("Calling a downstream service")
-        downstreamService((req, { resp in
-            let firstResponse: Bool = firstQ.sync {
-                let localIsFirst = first
-                first = false
-                return localIsFirst
+        serviceCounter.enter()
+        downstreamService((req, { (response, error) in
+            guard let response = response else {
+                serviceCounter.leave()
+                return
             }
-            if firstResponse {
-                callback(resp)
+            if first() {
+                callback(response, nil)
             }
+            serviceCounter.leave()
         }))
+        if first() {
+            callback(nil, ServiceError.allDowntstreamServicesFailed)
+        }
     }
 }
 
@@ -55,14 +76,14 @@ func delayedAsyncCall() -> AsyncService {
     return { call in
         let (req, callback): AsyncCall = call
         DispatchQueue(label: "delayedAsyncService").asyncAfter(deadline: .now() + .milliseconds(Int(rand(bound: 5000)))) {
-            callback(())
+            callback((), nil)
         }
     }
 }
 
 let dg = DispatchGroup()
 dg.enter()
-service(call: ((), { rsp in
+service(call: ((), { (_, _) in
     print("Got final response")
     dg.leave()
 }), downstreamServices: (0..<50).map{_ in delayedAsyncCall()})
