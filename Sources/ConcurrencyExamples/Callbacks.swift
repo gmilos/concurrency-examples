@@ -1,27 +1,10 @@
 import Dispatch
-#if os(macOS) || os(tvOS) || os(iOS)
-import Darwin
-#endif
-#if os(Linux)
-import Glibc
-#endif
-
-// Typealias setup
-typealias Request = ()
-typealias Response = ()
 
 typealias Callback = (Response?, Error?) -> ()
 typealias AsyncCall = (Request, Callback)
 typealias AsyncService = (AsyncCall) -> ()
 
-enum ServiceError : Error {
-    case noDowntstreamService
-    case allDowntstreamServicesFailed
-}
-
-
-// Implementation
-func service(call: AsyncCall, downstreamServices: [AsyncService]) {
+func callbackService(call: AsyncCall, downstreamServices: [AsyncService]) {
     let (req, callback): AsyncCall = call
 
     guard downstreamServices.count > 0 else {
@@ -42,7 +25,6 @@ func service(call: AsyncCall, downstreamServices: [AsyncService]) {
 
     let serviceCounter = DispatchGroup()
     for downstreamService in downstreamServices {
-        print("Calling a downstream service")
         serviceCounter.enter()
         downstreamService((req, { (response, error) in
             guard let response = response else {
@@ -62,29 +44,3 @@ func service(call: AsyncCall, downstreamServices: [AsyncService]) {
 
 
 
-
-// Runner
-func rand(bound: UInt32) -> UInt32 {
-#if os(Linux)
-    return random() % bound
-#else
-    return arc4random() % bound
-#endif
-}
-
-func delayedAsyncCall() -> AsyncService {
-    return { call in
-        let (req, callback): AsyncCall = call
-        DispatchQueue(label: "delayedAsyncService").asyncAfter(deadline: .now() + .milliseconds(Int(rand(bound: 5000)))) {
-            callback((), nil)
-        }
-    }
-}
-
-let dg = DispatchGroup()
-dg.enter()
-service(call: ((), { (_, _) in
-    print("Got final response")
-    dg.leave()
-}), downstreamServices: (0..<50).map{_ in delayedAsyncCall()})
-dg.wait()
