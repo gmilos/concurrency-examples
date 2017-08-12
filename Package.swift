@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "concurrency-examples",
     dependencies: [
-        .package(url: "https://gitlab.sd.apple.com/tkientzle/Future-Swift.git", from: "0.5.3")
+        .package(url: "https://gitlab.sd.apple.com/swift-server/Future-Swift.git", from: "0.5.3")
     ],
     targets: [
         .target( name: "ConcurrencyExamples", dependencies: ["Future"]),
