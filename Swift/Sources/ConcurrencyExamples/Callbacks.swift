@@ -1,5 +1,13 @@
 import Dispatch
 
+/**
+Run with:
+
+```
+cd Swift/
+swift test --filter testCallbacks
+```
+*/
 typealias Callback = (Response?, Error?) -> ()
 typealias AsyncCall = (Request, Callback)
 typealias AsyncService = (AsyncCall) -> ()

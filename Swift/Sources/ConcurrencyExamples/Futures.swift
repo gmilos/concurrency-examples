@@ -1,5 +1,13 @@
 import Future
 
+/**
+Run with:
+
+```
+cd Swift/
+swift test --filter testFutures
+```
+*/
 typealias FutureService = (Request) -> Future<Response>
 
 func futureService(request: Request, downstreamServices: [FutureService]) -> Future<Response> {
