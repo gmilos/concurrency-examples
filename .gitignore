@@ -1,4 +1,4 @@
 .DS_Store
-/.build
-/Packages
-/*.xcodeproj
+Swift/.build
+Swift/Packages
+Swift/*.xcodeproj
