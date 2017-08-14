@@ -45,8 +45,40 @@ For concurrency models not currently expressible in Swift, we've attempted to mo
 ```
 
 ### actors
+
+Please find the full mocked up Swift verion
+[here](MockSwift-Erlang-Actors/racer_proxy.swift) and the actually working Erlang implementation [here](Erlang/racer_proxy.erl).
+
 ```swift
-//actors placeholder
+func proxy(from: Actor<MainActorIn>, request: Request) actor<ProxyHubIn> -> Void {
+    // we want to get notified when the workers die, even though we'll spawn with
+    // link
+    Actor.processFlag(.trapExit, true)
+    let numWorkers = 10000
+    let me: actor<ProxyHubIn> = Actor.self
+    for wid in 1...numWorkers {
+        _ = spawn linked workerMain(from: me, workerId: wid, request: ())
+    }
+    var deadWorkers = 0
+    while true {
+        if numWorkers == deadWorkers {
+            throw AllDiedError()
+        }
+        switch Actor.receive() {
+            case .workerDied(.normal):
+                // worker went down normally (we should have received a result)
+                continue
+            case .workerDied(.error(_)):
+                // worker died, need to account for that
+                deadWorkers += 1
+                continue
+            case .workerResult(let res):
+                // got a worker result, communicate back
+                from.send(.proxyDone(Actor.self, res))
+                break
+        }
+    }
+}
 ```
 
 ## Possible extensions
