@@ -52,4 +52,8 @@ class ConcurrencyExamplesTests: XCTestCase {
     func testFutures() {
         try! futureService(request: (), downstreamServices: (0..<50).map{_ in delayedFutureService()}).wait()
     }
+
+    func testGreenThreads() {
+        try! greenThreadService(request: (), downstreamServices: (0..<50).map{GreenThreadDelayService(id: $0)})
+    }
 }
