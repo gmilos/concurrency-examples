@@ -19,7 +19,6 @@ fileprivate class UnbufferedChannel<T> {
         }
         self.value = value
         condition.signal()
-        condition.unlock()
     }
 
     func receive() -> T {
@@ -45,7 +44,6 @@ struct GreenThreadDelayService {
     }
 
     func service(request: Request) throws -> Response {
-        if true { throw ServiceError.noDownstreamService }
         Thread.sleep(forTimeInterval: delay)
         return Response()
     }
@@ -54,6 +52,7 @@ struct GreenThreadDelayService {
 func greenThreadService(request: Request, downstreamServices: [GreenThreadDelayService]) throws ->
 Response {
     if downstreamServices.isEmpty {
+        throw ServiceError.noDownstreamService
     }
     let results = UnbufferedChannel<(Response?, Error?)>()
     for s in downstreamServices {
