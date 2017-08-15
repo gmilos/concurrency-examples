@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# Run with:
+# cd Python; python3 -m unittest test_first_response_service.AsyncAwaitSyntaxTest.test_execution_time
+
 from asyncio import (
     as_completed,
     get_event_loop,

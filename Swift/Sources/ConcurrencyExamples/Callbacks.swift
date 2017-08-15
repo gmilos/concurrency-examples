@@ -16,7 +16,7 @@ func callbackService(call: AsyncCall, downstreamServices: [AsyncService]) {
     let (req, callback): AsyncCall = call
 
     guard downstreamServices.count > 0 else {
-        callback(nil, ServiceError.noDowntstreamService)
+        callback(nil, ServiceError.noDownstreamService)
         return
     }
 
@@ -45,7 +45,7 @@ func callbackService(call: AsyncCall, downstreamServices: [AsyncService]) {
             serviceCounter.leave()
         }))
         if first() {
-            callback(nil, ServiceError.allDowntstreamServicesFailed)
+            callback(nil, ServiceError.allDownstreamServicesFailed)
         }
     }
 }

@@ -1,10 +1,10 @@
 # Concurrency Models
 
-This repository contains examples of how to code up a specifc asynchronous task (defined below) under following concurrency models:
+This repository contains examples of how to code up a specific asynchronous task (defined below) under following concurrency models:
 
 * [callback based, using Swift](Swift/Sources/ConcurrencyExamples/Callbacks.swift)
-* [Future based, using Swift](https://github.pie.apple.com/gmilos/concurrency-examples/blob/master/Swift/Sources/ConcurrencyExamples/Futures.swift)
-* async/away, using Python
+* [Future based, using Swift](Swift/Sources/ConcurrencyExamples/Futures.swift)
+* [async/away, using Python](Python/async_await_syntax.py)
 * green threads, using Go and Haskell
 * actors, using Erlang
 
@@ -36,7 +36,21 @@ For concurrency models not currently expressible in Swift, we've attempted to mo
 
 ### async/await
 ```swift
-//async-await placeholder
+func asyncAwaitService(request: Request, downstreamServices:[(Request) async throws -> Response]) async throws -> Response {
+    guard downstreamServices.count > 0 else {
+        throw ServiceError.noDownstreamService
+    }
+
+    let futures = downstreamServices.map { service in
+        future { try await service(request) }
+    }
+
+    if let response = try await Future.firstSuccess(futures: futures).get() {
+        return response
+    }
+
+    throw ServiceError.allDownstreamServicesFailed
+}
 ```
 
 ### green threads
@@ -51,7 +65,7 @@ For concurrency models not currently expressible in Swift, we've attempted to mo
 
 ## Possible extensions
 
-The simple 'racing proxy' doesn't capture all complexities of interracting with asynchronous APIs. In particular, we are looking at extending the above with:
+The simple 'racing proxy' doesn't capture all complexities of interacting with asynchronous APIs. In particular, we are looking at extending the above with:
 
 * cancellation, to stop downstream services from doing potentially expensive work if the results are not going to be used
 * back-pressure, if the proxy is receiving requests at a rate greater than what it can process (most likely because of downstream themselves becoming overloaded), how would it be able to both learn about such condition and notify the caller
