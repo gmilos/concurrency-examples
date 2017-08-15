@@ -1,5 +1,13 @@
 import Foundation // Really this would be "ServerFoundation"
 
+/**
+Run with:
+
+```
+cd Swift/
+swift test --filter testGreenThreads
+```
+*/
 fileprivate func go(coroutine: @escaping () -> ()) {
     guard #available(macOS 10.12, *) else {
         fatalError()

@@ -1,3 +1,5 @@
+// Run with: cd Go; GOPATH=$PWD${GOPATH+:}$GOPATH go test
+
 package example
 
 import "fmt"

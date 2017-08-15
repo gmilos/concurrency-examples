@@ -5,8 +5,8 @@ This repository contains examples of how to code up a specific asynchronous task
 * [callback based, using Swift](Swift/Sources/ConcurrencyExamples/Callbacks.swift)
 * [Future based, using Swift](Swift/Sources/ConcurrencyExamples/Futures.swift)
 * [async/away, using Python](Python/async_await_syntax.py)
-* green threads, using Go and Haskell
-* actors, using Erlang
+* green threads, using [Go](Go/goroutines.go) and [Haskell](Haskell+STM/proxy_racer.hs)
+* [actors, using Erlang](Erlang/racer_proxy.erl)
 
 Each of the samples is runnable, see code comments in the samples above.
 
@@ -35,6 +35,9 @@ For concurrency models not currently expressible in Swift, we've attempted to mo
 [see here](https://github.pie.apple.com/gmilos/concurrency-examples/blob/master/Swift/Sources/ConcurrencyExamples/Futures.swift)
 
 ### async/await
+
+Support library code needed to implement the below is [here](Swift/Sources/AsyncAwaitLibs.swift).
+
 ```swift
 func asyncAwaitService(request: Request, downstreamServices:[(Request) async throws -> Response]) async throws -> Response {
     guard downstreamServices.count > 0 else {
@@ -53,123 +56,39 @@ func asyncAwaitService(request: Request, downstreamServices:[(Request) async thr
 }
 ```
 
-Assumed Libraries:
-```swift
-import Dispatch
-
-
-public protocol FutureProtocol {
-    associatedtype Result
-
-    func result() async throws -> Result
-}
-
-public func callWithCompletionHandler<T>(coroutine: () async throws -> T, completionHandler: @escaping (T?, Error?)) {
-    (coroutine as (@escaping (T?, Error?) -> ()))(completionHandler)
-}
-
-public func asCoroutine<T>(_ completionHandler: @escaping (T?, Error?) -> ()) -> () async throws -> T {
-    return completionHandler as () async throws -> T
-}
-
-// A possible implementation
-public class Future<T> : FutureProtocol {
-    public init(queue: DispatchQueue = .global(), coroutine: @escaping () async throws -> T) {
-        self.queue = queue
-        queue.async {
-            callWithCompletionHandler(coroutine: coroutine, completionHandler: self.notifyCompleted)
-        }
-        sync = DispatchQueue(label: "swift.Future.sync", target: queue)
-    }
-
-    private enum State {
-        case pending(callbacks: [(T?, Error?) -> ()])
-        case success(T)
-        case error(Error)
-    }
-
-    private let sync: DispatchQueue
-    private var state: State = .pending(callbacks: [])
-
-    private func callWhenResult(resultCallback: @escaping (T?, Error?) -> ()) {
-        if let state = sync.sync {
-            switch state {
-            case pending(var callbacks):
-                callbacks.append(resultCallback)
-                self.state = .pending(callbacks)
-                return nil
-            default:
-                return state
-            }
-        }
-    }
-
-    private func notifyCompleted(result: T?, error: Error?) {
-        assert((result == nil && error != nil) || (error == nil && result != nil))
-        let callbacks, args = sync.sync {
-            guard case .pending(let callbacks) = self.state else {
-                preconditionFailure("Can't complete twice")
-            }
-            if let result = result {
-                self.state = .success(result)
-                return callbacks, (result, nil)
-            } else {
-                self.state = .error(error!)
-                return callbacks, (nil, error)
-            }
-        }
-        for callback in callbacks {
-            callback(args)
-        }
-    }
-
-
-    public func result() async throws -> T {
-        return try await asCoroutine(self.callWhenResult)
-    }
-}
-
-public extension Future {
-    public static func firstSuccessful<T>(futures: [Future<T>], queue: DispatchQueue = .global()) async -> T? {
-        let sync = DispatchQueue(label: "org.swift.Future.firstSuccessful.sync", target: queue)
-        // Guarded by `sync`
-        let promise = Promise<T?>()
-        for future in futures {
-            _ = Future(queue: queue) {() async -> Void in
-                if let result = try? await future.result() {
-                    sync.sync {
-                       if !promise.isFulfilled {
-                           promise.fulfill(result: result)
-                       }
-                    }
-                }
-            }
-        }
-        _ = Future(queue: queue) {
-            for future in futures {
-                if try? await future.result() != nil {
-                    return
-                }
-            }
-            sync.sync {
-                if !promise.isFulfilled {
-                    promise.fulfill(result: nil)
-                }
-            }
-        }
-        return try! await promise.future.result()
-    }
-}
-```
 
 ### green threads
+
+Full mocked up Swift version [here](Swift/Sources/ConcurrencyExamples/GreenThreads.swift) (works, but assumes `Thread` is cheap).
+
 ```swift
-//green threads placeholder
+func greenThreadService(request: Request, downstreamServices: [GreenThreadDelayService]) throws ->
+Response {
+    if downstreamServices.isEmpty {
+        throw ServiceError.noDownstreamService
+    }
+    let results = UnbufferedChannel<(Response?, Error?)>()
+    for s in downstreamServices {
+        go {
+            do {
+                results.send((try s.service(request: request), nil))
+            } catch {
+                results.send((nil, error))
+            }
+        }
+    }
+    for _ in downstreamServices {
+        if case let (.some(result), .none) = results.receive() {
+            return result
+        }
+    }
+    throw ServiceError.allDownstreamServicesFailed
+}
 ```
 
 ### actors
 
-Please find the full mocked up Swift verion
+Please find the full mocked up Swift version
 [here](MockSwift-Erlang-Actors/racer_proxy.swift) and the actually working Erlang implementation [here](Erlang/racer_proxy.erl).
 
 ```swift
