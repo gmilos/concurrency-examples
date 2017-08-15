@@ -7,7 +7,7 @@ public protocol FutureProtocol {
     func result() async throws -> Result
 }
 
-public func callWithCompletionHandler<T>(coroutine: () async throws -> T, completionHandler: @escaping (T?, Error?)) {
+public func callWithCompletionHandler<T>(coroutine: () async throws -> T, completionHandler: @escaping (T?, Error?) -> ()) {
     (coroutine as (@escaping (T?, Error?) -> ()))(completionHandler)
 }
 
@@ -37,7 +37,7 @@ public class Future<T> : FutureProtocol {
     private func callWhenResult(resultCallback: @escaping (T?, Error?) -> ()) {
         if let state = sync.sync {
             switch state {
-            case pending(var callbacks):
+            case .pending(var callbacks):
                 callbacks.append(resultCallback)
                 self.state = .pending(callbacks)
                 return nil
@@ -45,30 +45,38 @@ public class Future<T> : FutureProtocol {
                 return state
             }
         }
+        switch state {
+        case .success(let result):
+            resultCallback(result, nil)
+        case .error(let error):
+            resultCallback(nil, error)
+        default:
+            return
+        }
     }
 
     private func notifyCompleted(result: T?, error: Error?) {
         assert((result == nil && error != nil) || (error == nil && result != nil))
-        let callbacks, args = sync.sync {
+        let callbacks = sync.sync {
             guard case .pending(let callbacks) = self.state else {
                 preconditionFailure("Can't complete twice")
             }
             if let result = result {
                 self.state = .success(result)
-                return callbacks, (result, nil)
+                return callbacks
             } else {
                 self.state = .error(error!)
-                return callbacks, (nil, error)
+                return callbacks
             }
         }
         for callback in callbacks {
-            callback(args)
+            callback(result, error)
         }
     }
 
 
     public func result() async throws -> T {
-        return try await asCoroutine(self.callWhenResult)
+        return try await asCoroutine(self.callWhenResult)()
     }
 }
 
