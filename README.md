@@ -4,7 +4,7 @@ This repository contains examples of how to code up a specific asynchronous task
 
 * [callback based, using Swift](Swift/Sources/ConcurrencyExamples/Callbacks.swift)
 * [Future based, using Swift](Swift/Sources/ConcurrencyExamples/Futures.swift)
-* [async/away, using Python](Python/async_await_syntax.py)
+* [async/await, using Python](Python/async_await_syntax.py)
 * green threads, using [Go](Go/goroutines.go) and [Haskell](Haskell+STM/proxy_racer.hs)
 * [actors, using Erlang](Erlang/racer_proxy.erl)
 
@@ -36,7 +36,8 @@ For concurrency models not currently expressible in Swift, we've attempted to mo
 
 ### async/await
 
-Support library code needed to implement the below is [here](Swift/Sources/AsyncAwaitLibs.swift).
+Support library code needed to implement the below is [here](MockSwift-Async-Await/AsyncAwaitLibs.swift).
+
 
 ```swift
 func asyncAwaitService(request: Request, downstreamServices:[(Request) async throws -> Response]) async throws -> Response {
